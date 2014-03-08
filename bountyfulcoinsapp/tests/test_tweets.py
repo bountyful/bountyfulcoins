@@ -31,10 +31,11 @@ class TestTweetBounty(BountyCreateMixin, SiteDataMixin, WebTest):
     def test_tweet_msg_format(self):
         bounty = Bounty.objects.get(id=2)
         tweet_msg = bounty._get_tweet()
+        weekday = bounty.ctime.strftime('%A')
         self.assertEqual(
             tweet_msg,
-            "Friday #bitcoin bounty paying 2000 in DOGE "
-            "http://example.com/bounty/2/details #bountyful")
+            "%s #bitcoin bounty paying 2000 in DOGE "
+            "http://example.com/bounty/2/details #bountyful" % weekday)
 
     def test_tweeting_on_shared(self):
         data = self.good_data.copy()
@@ -59,5 +60,5 @@ class TestTweetBounty(BountyCreateMixin, SiteDataMixin, WebTest):
         self.assertTrue(bounty.is_featured)
         change_form = self._get_bounty_form(new=False, pk=bounty.pk)
         self.assertRedirects(change_form.submit(),
-                             reverse('bounty_details', args=[bounty.pk]))
+                             reverse('change_bounty', args=[bounty.pk]))
         Bounty.send_tweet.assert_not_called()

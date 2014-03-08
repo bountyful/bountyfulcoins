@@ -49,7 +49,7 @@ class TestFeaturedBounty(BountyCreateMixin, SiteDataMixin, WebTest):
         # attempt saving with many addresses existing
         change_form = self._get_bounty_form(new=False, pk=bounty.pk)
         self.assertRedirects(change_form.submit(),
-                             reverse('bounty_details', args=[bounty.pk]))
+                             reverse('change_bounty', args=[bounty.pk]))
 
     def test_create_no_addresses_available(self):
         Address.objects.all().delete()

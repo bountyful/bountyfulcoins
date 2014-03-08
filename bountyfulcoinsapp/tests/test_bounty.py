@@ -67,13 +67,20 @@ class TestBountyCreate(BountyCreateMixin, SiteDataMixin, WebTest):
         self._fill_form(create_form, min_data)
         res = create_form.submit()
         b = Bounty.objects.get(link__url=self.good_data['url'])
-        self.assertRedirects(res, reverse('bounty_details', args=[b.pk]))
+        self.assertRedirects(res, reverse('change_bounty', args=[b.pk]))
 
         for field, value in self.default_data.items():
             self.assertEqual(getattr(b, field), value)
 
         self.assertFalse(b.tags.exists())
         self.assertFalse(b.shared.exists())
+
+    def test_save_and_view(self):
+        create_form = self._get_bounty_form()
+        self._fill_form(create_form, self.good_data.copy())
+        res = create_form.submit('_redirect')
+        b = Bounty.objects.get(link__url=self.good_data['url'])
+        self.assertRedirects(res, reverse('bounty_details', args=[b.pk]))
 
     def test_tags(self):
         data = self.good_data.copy()
