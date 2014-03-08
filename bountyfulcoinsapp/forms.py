@@ -1,3 +1,5 @@
+from pprint import pformat
+import logging
 import io
 
 from django import forms
@@ -12,6 +14,9 @@ from validate_email import validate_email
 
 from bountyfulcoinsapp.models import Bounty, Address, Link, PaymentRecord
 from bountyfulcoinsapp.utils import get_addresses_from_csv
+
+
+logger = logging.getLogger('bountyfulcoinsapp.forms')
 
 
 class RegistrationForm(BaseRegistrationForm):
@@ -141,6 +146,7 @@ class BlockChainFwdCallbackForm(forms.Form):
     value = forms.FloatField()
     transaction_hash = forms.CharField()
     input_transaction_hash = forms.CharField()
+    test = forms.BooleanField()
 
     def clean_destination_address(self):
         dst_addr = self.cleaned_data['destination_address']
@@ -150,6 +156,10 @@ class BlockChainFwdCallbackForm(forms.Form):
 
     def clean(self):
         data = self.cleaned_data.copy()
+        if data['test'] and not settings.DEBUG:
+            logger.debug('Test for data transaction: %s', pformat(data))
+            return  # ignore test processing
+
         try:
             rec = PaymentRecord.objects.get(id=data['payment_id'],
                                             uid=data['payment_uid'],
