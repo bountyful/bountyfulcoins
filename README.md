@@ -27,44 +27,6 @@
 
 (in the future we will also support: `python manage.py compilemessages`)
 
-### Settings (i.e: a `host_settings.py` file)
-
-    from settings import *
-
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': 'bountyfulcoins.staging.db',
-        }
-    }
-
-    ACCOUNT_ACTIVATION_DAYS = 7  # One-week activation window
-    RECAPTCHA_USE_SSL = True
-
-    # replace with a real key pair from here:
-    # http://www.google.com/recaptcha/whyrecaptcha
-    RECAPTCHA_PUBLIC_KEY = 'THIS_SHOULD_BE_A_REAL_KEY'
-    RECAPTCHA_PRIVATE_KEY = 'THIS_SHOULD_BE_A_REAL_KEY'
-
-    # an issue with pydns prevents this from working properly
-    CHECK_MX = False
-    CHECK_EMAIL_EXISTS = False
-
-    FEATURE_POST_MIN_CHARGE = 0.01594
-    FEATURE_POST_DAILY_CHARGE = 0.01594
-
-    ADDRESSES_LIVE_SYNC = True  # turn this off when running sync in cron
-    ADDRESSES_SYNC_FREQUENCE = 60 * 5  # five minutes
-    
-    COMMENTS_XTD_MAX_THREAD_LEVEL = 8
-
-    TWITTER_CONSUMER_KEY = 'type in your consumer key here'
-    TWITTER_CONSUMER_SECRET = 'type in your consumer secret here'
-    TWITTER_ACCESS_TOKEN = 'type in your access token here'
-    TWITTER_ACCESS_TOKEN_SECRET = 'type in your access token secret here'
-
-
-
 ### Running Tests
 
 To run the test suite, simply run:
