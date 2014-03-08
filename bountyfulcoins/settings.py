@@ -188,6 +188,8 @@ ROOT_URLCONF = 'bountyfulcoins.urls'
 WSGI_APPLICATION = 'bountyfulcoins.wsgi.application'
 LOGIN_URL = '/login/'
 
+SATOSHIS_IN_BTC = 100000000.0
+
 ACCOUNT_ACTIVATION_DAYS = 7  # One-week activation window
 RECAPTCHA_USE_SSL = True
 RECAPTCHA_PUBLIC_KEY = '6Ld6Su8SAAAAAEjAGF4Lt3mOzfhK6snc3Ub_SYBt'
@@ -209,3 +211,5 @@ TWITTER_CONSUMER_KEY = 'type in your consumer key here'
 TWITTER_CONSUMER_SECRET = 'type in your consumer secret here'
 TWITTER_ACCESS_TOKEN = 'type in your access token here'
 TWITTER_ACCESS_TOKEN_SECRET = 'type in your access token secret here'
+
+RECEIVING_ADDRESS = None  # to fwd to a specified addr enter hash str here

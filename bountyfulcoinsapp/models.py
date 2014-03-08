@@ -3,6 +3,7 @@ from datetime import timedelta
 from itertools import groupby
 from operator import itemgetter
 import logging
+import uuid
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
@@ -222,7 +223,93 @@ class FeaturedBounty(models.Model):
         A wrapper property around the fwd address functionality falling
         back to using one of our available 0 addresses.
         """
-        return self.address.address_id
+        return self.get_forwarding_address() or self.address.address_id
+
+    def get_forwarding_address(self):
+        """
+        If a receiving address is defined, return a fwd addr to it,
+        otherwise return None
+        """
+        if settings.RECEIVING_ADDRESS is None:
+            # we can now fallback to receiving into one of our addresses
+            return None
+
+        if not hasattr(self, '_fwd_addr'):  # memoize
+            if self.payments.filter(amount=0).count() > 0:
+                # if payment record with 0 amount exist, use latest fwd address
+                last_zero_payment = self.payments.filter(amount=0).latest()
+                if last_zero_payment.input_address:
+                    self._fwd_addr = last_zero_payment.input_address
+                    return self._fwd_addr
+
+            # otherwise, generate a new address and relate to a payment record
+            from django.core.urlresolvers import reverse
+            callback_base = u"{protocol}{domain}{path}".format(
+                protocol=get_protocol(getattr(self, '_request', None)),
+                domain=Site.objects.get_current().domain.strip(' /'),
+                path=reverse('callback')
+            )
+            pr = PaymentRecord(featured_bounty=self)
+            pr.save()
+            cb = '{base}?payment_id={id}&secret={uid}'.format(
+                base=callback_base, id=pr.id, uid=pr.uid)
+            addr = blockchain.get_forwarding_address(
+                settings.RECEIVING_ADDRESS, cb)
+            pr.input_address = addr
+            pr.save()
+
+            if not addr:
+                logger.error('Could not get a forwarding address')
+                # we can now fallback to receiving into one of our addresses
+                return None
+            self._fwd_addr = addr
+        return self._fwd_addr
+
+    def get_remaining_paid(self):
+        """
+        Return the sum of of the remaining amount total from all sums paid
+        for this bounty featuring.
+        """
+        return sum(p.calculate_remaining
+                   for p in self.payments.filter(verified=True))
+
+
+def get_uuid():
+    return uuid.uuid4().hex
+
+
+class PaymentRecord(models.Model):
+    class Meta:
+        ordering = ['-ctime']
+        get_latest_by = "ctime"
+
+    featured_bounty = models.ForeignKey(FeaturedBounty, related_name='payments')
+    uid = models.CharField(default=get_uuid, max_length=32)
+    ctime = models.DateTimeField(default=timezone.now)
+    mtime = models.DateTimeField(null=True)
+
+    # post verification details
+    verified_on = models.DateTimeField(null=True)
+    amount = models.FloatField(default=0.0)
+    verified = models.BooleanField(default=False)
+    input_address = models.CharField(max_length=255, null=True)
+    confirmatons = models.IntegerField(default=0)
+    fwd_transaction = models.CharField(max_length=255, null=True)
+    input_transaction = models.CharField(max_length=255, null=True)
+    # remaining_amount = models.FloatField(default=0.0)
+
+    def save(self, *args, **kwargs):
+        self.mtime = timezone.now()
+        return super(PaymentRecord, self).save(*args, **kwargs)
+
+    def calculate_remaining(self):
+        """
+        Get the remaning amount of this payment, meaning:
+        original amount paid, reduced daily
+        """
+        delta_seconds = (timezone.now() - self.ctime).total_seconds()
+        days_passed = int(delta_seconds / float(60 * 60 * 24))
+        return self.amount - (days_passed * settings.FEATURE_POST_MIN_CHARGE)
 
 
 def calculate_totals():

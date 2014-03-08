@@ -43,6 +43,10 @@ urlpatterns = patterns(
     url(r'^search/$', views.search_page, name='search'),
     url(r'^vote/$', views.bounty_vote_page),
 
+    # endpoints for blockchain api
+    url(r'^callback/$', views.VerifyFeaturedBountyPaid.as_view(),
+        name='callback'),
+
     # Django Admin Page
     url(r'^admin/', include(admin.site.urls)),
 )

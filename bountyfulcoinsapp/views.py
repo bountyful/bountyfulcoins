@@ -1,26 +1,32 @@
 from datetime import timedelta
+import logging
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.db.models import Q
-from django.http import Http404, HttpResponseRedirect
-from django.utils.decorators import method_decorator
-from django.utils.translation import ugettext_lazy as _
-
+from django.http import (Http404, HttpResponseRedirect, HttpResponse,
+                         HttpResponseBadRequest)
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template import RequestContext
-from django.views.generic import (TemplateView, CreateView,
-                                  UpdateView, DetailView)
-from django.views.generic.edit import BaseFormView
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.utils.translation import ugettext_lazy as _
+from django.views.generic import (View, TemplateView, CreateView,
+                                  UpdateView, DetailView)
+from django.views.generic.edit import BaseFormView, FormMixin
 
 from registration.views import RegistrationView as BaseRegistrationView
 
 from bountyfulcoinsapp.forms import (RegistrationForm, SearchForm,
-                                     BountySaveForm, ImportAddressesForm)
+                                     BountySaveForm, ImportAddressesForm,
+                                     BlockChainFwdCallbackForm)
 from bountyfulcoinsapp.models import (Bounty, SharedBounty, FeaturedBounty,
                                       Tag, calculate_totals)
+
+
+logger = logging.getLogger('bountyfulcoinsapp.views')
 
 
 class LoginRequiredMixin(object):
@@ -125,7 +131,32 @@ class BountyDetails(DetailView):
     model = Bounty
 
 
-# Views for the Home Page
+class VerifyFeaturedBountyPaid(FormMixin, View):
+    form_class = BlockChainFwdCallbackForm
+
+    def get(self, request, *args, **kwargs):
+        """
+        Handles callback verification, instantiating a form instance with
+        the passed GET variables and then checked for validity.
+        """
+        form_class = self.get_form_class()
+        form = form_class({'data': self.request.GET})
+        if form.is_valid():
+            return self.form_valid(form)
+        else:
+            return self.form_invalid(form)
+
+    def form_valid(self, form):
+        form.save()
+        return HttpResponse("*ok*")  # required response by blockchain
+
+    def form_invalid(self, form):
+        error = ''
+        for field, v in form.errors.items():
+            error = '%s: %s' % (field, ', '.join([unicode(e) for e in v]))
+        return HttpResponseBadRequest(error)  # required response by blockchain
+
+
 class PopularBountiesView(TemplateView):
     template_name = 'popular_page.html'
 

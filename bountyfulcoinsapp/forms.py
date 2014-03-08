@@ -3,13 +3,14 @@ import io
 from django import forms
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
 from captcha.fields import ReCaptchaField
 from registration.forms import RegistrationForm as BaseRegistrationForm
 from validate_email import validate_email
 
-from bountyfulcoinsapp.models import Bounty, Address, Link
+from bountyfulcoinsapp.models import Bounty, Address, Link, PaymentRecord
 from bountyfulcoinsapp.utils import get_addresses_from_csv
 
 
@@ -127,3 +128,52 @@ class ImportAddressesForm(forms.Form):
         addresses = get_addresses_from_csv(
             self.sio, headers=('_', 'address_id'))
         Address.bulk_create(addresses)
+
+
+class BlockChainFwdCallbackForm(forms.Form):
+    record = None
+
+    destination_address = forms.CharField()
+    payment_id = forms.CharField()
+    secret = forms.CharField()
+    input_address = forms.CharField()
+    confirmations = forms.IntegerField()
+    value = forms.FloatField()
+    transaction_hash = forms.CharField()
+    input_transaction_hash = forms.CharField()
+
+    def clean_destination_address(self):
+        dst_addr = self.cleaned_data['destination_address']
+        if dst_addr != settings.RECEIVING_ADDRESS:
+            raise forms.ValidationError('Invalid destination address')
+        return dst_addr
+
+    def clean(self):
+        data = self.cleaned_data.copy()
+        try:
+            rec = PaymentRecord.objects.get(id=data['payment_id'],
+                                            uid=data['payment_uid'],
+                                            input_address=data['input_address'])
+        except PaymentRecord.DoesNotExist:
+            raise forms.ValidationError('Invalid payment record')
+
+        self.record = rec
+
+    def save(self):
+        if not self.record:
+            # validation did not pass!
+            return None
+
+        data = self.cleaned_data.copy()
+        value = data['value']  # in satoshis
+        value_btc = value / float(settings.SATOSHIS_IN_BTC)  # in BTC
+
+        # update record fields after verification
+        self.record.amount = value_btc
+        self.record.confirmations = data['confirmations']
+        self.record.fwd_transaction = data['transaction_hash']
+        self.record.input_transaction = data['input_transaction_hash']
+        self.record.verified = True  # change this if need more confirmations
+        self.record.verified_on = timezone.now()
+        self.record.save()
+        return self.record
